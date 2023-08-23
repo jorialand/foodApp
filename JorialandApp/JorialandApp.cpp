@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <chrono>
 #include <thread>
@@ -10,6 +11,11 @@
 #include <Poco/JSON/Stringifier.h>
 #include <Poco/JSON/Parser.h>
 #include <Poco/Dynamic/Var.h>
+#include <mongocxx/instance.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/uri.hpp>
+#include <bsoncxx/json.hpp>
+
 #include "JorialandApp.h"
 
 using namespace std::chrono_literals;
@@ -66,15 +72,14 @@ struct Event
 	Event(const std::string& sTitle,
 				const std::string& sDescription,
 				const std::string& sDate) : sTitle{ sTitle }, sDescription{ sDescription }, sDate{ sDate }
-	{
-	}
+	{}
 };
 struct Food : Event
 {
 	std::string sImage;
-	bool bHungry;
-	Enums::eSatisfaction eSatisfaction;
-	bool bBadFood;
+	bool bHungry{ false };
+	Enums::eSatisfaction eSatisfaction{ Enums::eSatisfaction::MEDIUM };
+	bool bBadFood{ false };
 	Enums::eEventType GetEventType() override
 	{
 		return Enums::eEventType::FOOD;
@@ -89,7 +94,7 @@ struct Food : Event
 			 bool bBadFood) : Event(sTitle, sDescription, sDate), sImage{ sImage }, bHungry{ bHungry }, eSatisfaction{ eSatisfaction }, bBadFood{ bBadFood }
 	{}
 
-	static void serializeFoodToJson(const Food& food, std::string& json)
+	static void Serialize(const Food& food, std::string& json)
 	{
 		Poco::JSON::Object jsonObj;
 		jsonObj.set("sTitle", food.sTitle);
@@ -130,7 +135,7 @@ Food GetFoodFromUser()
 {
 	std::string input, sTitle, sDate, sImage, sDescription, bHungry, eSatisfaction, bBadFood;
 	std::istringstream iss;
-	std::cout << "Introduzca los datos separados por comas (Title,Date,Image,Description,Hungry,Satisfaction,BadFood): ";
+	std::cout << "Introduzca los datos separados por comas (Nombre,Fecha,Imagen,Descripción,Hambre,Satisfacción,Malestar): " << std::endl;
 	std::getline(std::cin, input);
 	iss.str(input);
 
@@ -142,14 +147,15 @@ Food GetFoodFromUser()
 	std::getline(iss, eSatisfaction, ',');
 	std::getline(iss, bBadFood, ',');
 
+	std::cout << std::endl << "---" << std::endl; 
 	//// Print the parsed values to the console
-	std::cout << "Title: " << sTitle << std::endl;
-	std::cout << "Date: " << sDate << std::endl;
-	std::cout << "Image: " << sImage << std::endl;
-	std::cout << "Description: " << sDescription << std::endl;
-	std::cout << "Hungry: " << bHungry << std::endl;
-	std::cout << "Satisfaction: " << eSatisfaction << std::endl;
-	std::cout << "BadFood: " << bBadFood << std::endl;
+	std::cout << "Nombre: " << sTitle << std::endl;
+	std::cout << "Fecha: " << sDate << std::endl;
+	std::cout << "Imagen: " << sImage << std::endl;
+	std::cout << "Descripción: " << sDescription << std::endl;
+	std::cout << "Hambre: " << bHungry << std::endl;
+	std::cout << "Satisfacción: " << eSatisfaction << std::endl;
+	std::cout << "Malestar: " << bBadFood << std::endl;
 
 	return Food(sTitle, sDescription, sDate, sImage,
 							Utilities::strToBool(bHungry),
@@ -159,17 +165,27 @@ Food GetFoodFromUser()
 
 bool InsertInDatabase(const Food& food)
 {
-	std::cout << "Food " << food.sTitle << " inserted into database." << std::endl;
+	std::cout << std::endl << "---" << std::endl;
+	std::cout << "Comida " << food.sTitle << " añadida." << std::endl;
 	std::string foodJson;
-	Food::serializeFoodToJson(food, foodJson);
+	Food::Serialize(food, foodJson);
 	std::cout << "Json:" << std::endl << foodJson << std::endl;
+
+	mongocxx::instance instance{};
+	mongocxx::client client{mongocxx::uri{"mongodb://localhost:27017"}};
+	mongocxx::database db = client["foodApp"];
+	mongocxx::collection collection = db["foods"];
+	auto bsonDoc = bsoncxx::from_json(foodJson);
+	collection.insert_one(bsonDoc.view());
+
 	return true;
 }
 
 int main()
 {
-	std::locale::global(std::locale("")); // Set the global locale for the console
-	std::cout.imbue(std::locale());       // Set the locale for cout
+	//const auto locale = std::locale();
+	std::locale::global(std::locale("")/*locale*/); // Set the global locale for the console
+	std::cout.imbue(std::locale("")/*locale*/);       // Set the locale for cout
 
 	std::string input;
 	Enums::eMenuOption option;
@@ -212,3 +228,7 @@ int main()
 
 	return 0;
 }
+
+        //{
+        //    "name": "mongo-cxx-driver"
+        //}

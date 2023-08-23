@@ -1,0 +1,15 @@
+{
+	"name": "jorialand-app",
+	"version": "0.0.0",
+	"dependencies": [
+		{
+			"name": "poco",
+			"version>=": "1.12.4"
+		},
+		{
+			"name": "mongo-cxx-driver",
+			"version>=": "3.7.2"
+		}
+	],
+	"builtin-baseline": "0fa8459cf3a7caca7adc58f992bc32ff13630684"
+}

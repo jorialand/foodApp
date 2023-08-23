@@ -1,5 +1,11 @@
-# Visual Studio folder
+## Visual Studio folder
 .vs/
+x64/
+vcpkg_installed/
 
-# Binaries
+## Other folders
+# Test project to investigate vcpkg manifest functionality
+Project1/
+
+## Binaries
 bin/
