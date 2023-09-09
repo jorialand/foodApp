@@ -48,13 +48,15 @@ namespace Enums
 
 	enum class eSatisfaction
 	{
-		LOW = 1,
+		DISASTER = 0,
+		LOW,
 		MEDIUM,
 		HIGH
 	};
 
 	eSatisfaction strToEnum(std::string_view s)
 	{
+		if (s == "0") return Enums::eSatisfaction::DISASTER;
 		if (s == "1") return Enums::eSatisfaction::LOW;
 		else if (s == "2") return Enums::eSatisfaction::MEDIUM;
 		else if (s == "3") return Enums::eSatisfaction::HIGH;
@@ -111,6 +113,14 @@ struct Food : Event
 	}
 };
 
+mongocxx::collection GetFoodsCollection()
+{
+	mongocxx::client client{ mongocxx::uri{"mongodb://localhost:27017"} };
+	mongocxx::database database = client["foodApp"];
+	mongocxx::collection foodsCollection = database["foods"];
+	return foodsCollection;
+}
+
 void CleanScreen()
 {
 	system("cls");
@@ -166,26 +176,41 @@ Food GetFoodFromUser()
 bool InsertInDatabase(const Food& food)
 {
 	std::cout << std::endl << "---" << std::endl;
-	std::cout << "Comida " << food.sTitle << " añadida." << std::endl;
+	std::cout << "Añadiendo comida: " << food.sTitle << std::endl;
 	std::string foodJson;
 	Food::Serialize(food, foodJson);
-	std::cout << "Json:" << std::endl << foodJson << std::endl;
+	std::cout << "Json =" << std::endl << foodJson << std::endl;
 
-	mongocxx::instance instance{};
-	mongocxx::client client{mongocxx::uri{"mongodb://localhost:27017"}};
-	mongocxx::database db = client["foodApp"];
-	mongocxx::collection collection = db["foods"];
-	auto bsonDoc = bsoncxx::from_json(foodJson);
-	collection.insert_one(bsonDoc.view());
+	try
+	{
+		auto bsonDoc = bsoncxx::from_json(foodJson);
+		//mongocxx::collection foodsCollection = GetFoodsCollection();
+		//if (foodsCollection)
+		mongocxx::client client{ mongocxx::uri{"mongodb://localhost:27017"} };
+		mongocxx::database database = client["foodApp"];
+		mongocxx::collection foodsCollection = database["foods"];
+		foodsCollection.insert_one(bsonDoc.view());
+	}
+	catch (const std::exception & e)
+	{
+		std::cout << "···" << __FUNCTION__ << "···" 
+		<< " Excepción: " << e.what() << std::endl;
+		return false;
+	}
 
+	std::cout << "Comida añadida." << std::endl;
 	return true;
 }
 
 int main()
 {
+	// Para evitar caracteres raros (e.g. en acentos)
 	//const auto locale = std::locale();
 	std::locale::global(std::locale("")/*locale*/); // Set the global locale for the console
 	std::cout.imbue(std::locale("")/*locale*/);       // Set the locale for cout
+
+	// Base de datos
+	mongocxx::instance instance{};
 
 	std::string input;
 	Enums::eMenuOption option;
@@ -197,8 +222,6 @@ int main()
 		std::getline(std::cin, input);
 		try
 		{
-			Food food;
-
 			option = static_cast<Enums::eMenuOption>(std::stoi(input));
 			switch (option)
 			{
@@ -208,14 +231,17 @@ int main()
 				InsertInDatabase(GetFoodFromUser());
 				WaitAnyInputFromUser();
 				break;
+
 				case Enums::eMenuOption::VIEW_FOOD:
 				std::cout << sNotImplemented << std::endl;
 				WaitAnyInputFromUser();
 				break;
+
 				case Enums::eMenuOption::EXIT:
 				std::cout << "Saliendo..." << std::endl;
 				std::this_thread::sleep_for(1s);
 				return 0;
+
 				default:
 				std::cout << sInvalidInputMsg << std::endl;
 			}
